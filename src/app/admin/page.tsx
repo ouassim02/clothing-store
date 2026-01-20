@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Plus, Upload, Save, X, Package, Tag, DollarSign, 
   Sparkles, TrendingUp, ShoppingBag,
-  Users, Settings, LogOut
+  Users, Settings, LogOut, Trash2, Edit, LayoutDashboard, ShoppingCart
 } from "lucide-react";
 
 // مكون الإحصائيات
@@ -53,16 +53,73 @@ function StatCard({ icon: Icon, title, value, color, trend }: any) {
 }
 
 export default function Dashboard() {
+  const [activeView, setActiveView] = useState("main"); // "main" or "settings"
+  const [products, setProducts] = useState<any[]>([
+    { id: 1, name: "Tenue de soirée", price: 4500, category_id: 1, image_url: "https://images.unsplash.com/photo-1595777457583-95e059d581b8?w=500", description: "", colors: "Red, Black", stock: 10, track_stock: true },
+    { id: 2, name: "Scarf", price: 1800, category_id: 3, image_url: "scarf.jpg", description: "", colors: "Blue", stock: 50, track_stock: true },
+    { id: 3, name: "Veste En Cuir", price: 6200, category_id: 2, image_url: "https://images.unsplash.com/photo-1551028719-00167b16eac5?w=500", description: "", colors: "Brown", stock: 5, track_stock: true },
+    { id: 4, name: "Jupe Classique", price: 3200, category_id: 1, image_url: "https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?w=500", description: "", colors: "Grey", stock: 20, track_stock: false },
+  ]);
+  const [categories, setCategories] = useState([
+    { id: 1, name: "Robes", slug: "robes" },
+    { id: 2, name: "Chemisiers", slug: "chemisiers" },
+    { id: 3, name: "Accessoires", slug: "accessoires" },
+  ]);
+
+  const [orders, setOrders] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    totalProducts: 0,
+    salesThisMonth: 0,
+    uniqueClients: 0,
+    totalRevenue: 0
+  });
+
+  useEffect(() => {
+    // تحميل الطلبيات من localStorage
+    const savedOrders = JSON.parse(localStorage.getItem("orders") || "[]");
+    setOrders(savedOrders);
+
+    // حساب الإحصائيات
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+
+    const monthOrders = savedOrders.filter((o: any) => {
+      const orderDate = new Date(o.date);
+      return orderDate.getMonth() === currentMonth && orderDate.getFullYear() === currentYear;
+    });
+
+    const uniqueClients = new Set(savedOrders.map((o: any) => o.phone)).size;
+    const totalRevenue = savedOrders.reduce((sum: number, o: any) => sum + o.total, 0);
+
+    setStats({
+      totalProducts: products.length,
+      salesThisMonth: monthOrders.length,
+      uniqueClients: uniqueClients,
+      totalRevenue: totalRevenue
+    });
+  }, [products, activeView]); // تحديث عند تغيير المنتجات أو التبديل للوحة التحكم
+
   const [showAddProduct, setShowAddProduct] = useState(false);
   const [showAddCategory, setShowAddCategory] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [editingCategory, setEditingCategory] = useState<any>(null);
   const [productData, setProductData] = useState({
+    id: null as number | null,
     name: "",
     price: "",
-    category: "none",
+    category_id: "none",
     description: "",
-    image: null as File | null
+    image: null as File | null,
+    image_url: "",
+    colors: "",
+    stock: "0",
+    track_stock: true
   });
-  const [categoryName, setCategoryName] = useState("");
+  const [categoryData, setCategoryData] = useState({
+    id: null as number | null,
+    name: ""
+  });
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,16 +135,91 @@ export default function Dashboard() {
   };
 
   const handleSubmitProduct = () => {
-    console.log("Product submitted:", productData);
+    if (editingProduct) {
+      setProducts(products.map(p => p.id === editingProduct.id ? { 
+        ...p, 
+        name: productData.name, 
+        price: Number(productData.price), 
+        category_id: productData.category_id === "none" ? null : Number(productData.category_id),
+        description: productData.description,
+        image_url: previewImage || p.image_url,
+        colors: productData.colors,
+        stock: Number(productData.stock),
+        track_stock: productData.track_stock
+      } : p));
+    } else {
+      const newProduct = {
+        id: Date.now(),
+        name: productData.name,
+        price: Number(productData.price),
+        category_id: productData.category_id === "none" ? null : Number(productData.category_id),
+        description: productData.description,
+        image_url: previewImage || "",
+        colors: productData.colors,
+        stock: Number(productData.stock),
+        track_stock: productData.track_stock
+      };
+      setProducts([...products, newProduct]);
+    }
     setShowAddProduct(false);
-    setProductData({ name: "", price: "", category: "none", description: "", image: null });
+    setEditingProduct(null);
+    setProductData({ id: null, name: "", price: "", category_id: "none", description: "", image: null, image_url: "", colors: "", stock: "0", track_stock: true });
     setPreviewImage(null);
   };
 
   const handleSubmitCategory = () => {
-    console.log("Category submitted:", categoryName);
+    if (editingCategory) {
+      setCategories(categories.map(c => c.id === editingCategory.id ? { 
+        ...c, 
+        name: categoryData.name,
+        slug: categoryData.name.toLowerCase().replace(/\s+/g, '-')
+      } : c));
+    } else {
+      const newCat = {
+        id: Date.now(),
+        name: categoryData.name,
+        slug: categoryData.name.toLowerCase().replace(/\s+/g, '-'),
+      };
+      setCategories([...categories, newCat]);
+    }
     setShowAddCategory(false);
-    setCategoryName("");
+    setEditingCategory(null);
+    setCategoryData({ id: null, name: "" });
+  };
+
+  const startEditProduct = (product: any) => {
+    setEditingProduct(product);
+    setProductData({
+      id: product.id,
+      name: product.name,
+      price: product.price.toString(),
+      category_id: product.category_id ? product.category_id.toString() : "none",
+      description: product.description || "",
+      image: null,
+      image_url: product.image_url,
+      colors: product.colors || "",
+      stock: (product.stock || 0).toString(),
+      track_stock: product.track_stock ?? true
+    });
+    setPreviewImage(product.image_url);
+    setShowAddProduct(true);
+  };
+
+  const startEditCategory = (category: any) => {
+    setEditingCategory(category);
+    setCategoryData({
+      id: category.id,
+      name: category.name
+    });
+    setShowAddCategory(true);
+  };
+
+  const deleteProduct = (id: number) => {
+    setProducts(products.filter(p => p.id !== id));
+  };
+
+  const deleteCategory = (id: number) => {
+    setCategories(categories.filter(c => c.id !== id));
   };
 
   return (
@@ -122,9 +254,10 @@ export default function Dashboard() {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="p-2 rounded-xl hover:bg-[#E0B0FF]/10 transition-colors"
+              onClick={() => setActiveView(activeView === "main" ? "settings" : "main")}
+              className={`p-2 rounded-xl transition-colors ${activeView === "settings" ? "bg-[#E0B0FF] text-white" : "hover:bg-[#E0B0FF]/10 text-gray-600"}`}
             >
-              <Settings className="text-gray-600" size={22} />
+              {activeView === "main" ? <Settings size={22} /> : <LayoutDashboard size={22} />}
             </motion.button>
             <motion.button
               whileHover={{ scale: 1.05, rotate: 5 }}
@@ -139,99 +272,243 @@ export default function Dashboard() {
 
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Stats Grid */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
-        >
-          <StatCard 
-            icon={ShoppingBag}
-            title="Total Produits"
-            value="4"
-            color="from-pink-500 to-rose-600"
-            trend="0%"
-          />
-          <StatCard 
-            icon={TrendingUp}
-            title="Ventes du Mois"
-            value="0"
-            color="from-purple-500 to-indigo-600"
-            trend="0%"
-          />
-          <StatCard 
-            icon={Users}
-            title="Clients"
-            value="0"
-            color="from-amber-500 to-orange-600"
-            trend="0%"
-          />
-          <StatCard 
-            icon={DollarSign}
-            title="Revenus"
-            value="0 DA"
-            color="from-emerald-500 to-teal-600"
-            trend="0%"
-          />
-        </motion.div>
+        {activeView === "main" ? (
+          <>
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
+            >
+              <StatCard 
+                icon={ShoppingBag}
+                title="Total Produits"
+                value={stats.totalProducts.toString()}
+                color="from-pink-500 to-rose-600"
+                trend="0%"
+              />
+              <StatCard 
+                icon={TrendingUp}
+                title="Ventes du Mois"
+                value={stats.salesThisMonth.toString()}
+                color="from-purple-500 to-indigo-600"
+                trend="0%"
+              />
+              <StatCard 
+                icon={Users}
+                title="Clients"
+                value={stats.uniqueClients.toString()}
+                color="from-amber-500 to-orange-600"
+                trend="0%"
+              />
+              <StatCard 
+                icon={DollarSign}
+                title="Revenus"
+                value={`${stats.totalRevenue} DA`}
+                color="from-emerald-500 to-teal-600"
+                trend="0%"
+              />
+            </motion.div>
 
-        {/* Action Cards */}
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Add Category Card */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-white rounded-3xl p-8 shadow-xl border-2 border-[#E0B0FF]/20"
-          >
-            <div className="flex items-center gap-3 mb-6">
+            {/* Action Cards */}
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Add Category Card */}
               <motion.div
-                animate={{ rotate: [0, 10, -10, 0] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="bg-gradient-to-br from-purple-100 to-[#E0B0FF]/10 p-3 rounded-2xl"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="bg-white rounded-3xl p-8 shadow-xl border-2 border-[#E0B0FF]/20"
               >
-                <Tag className="text-purple-600" size={24} />
+                <div className="flex items-center gap-3 mb-6">
+                  <motion.div
+                    animate={{ rotate: [0, 10, -10, 0] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="bg-gradient-to-br from-purple-100 to-[#E0B0FF]/10 p-3 rounded-2xl"
+                  >
+                    <Tag className="text-purple-600" size={24} />
+                  </motion.div>
+                  <h2 className="text-2xl font-black text-purple-900">Gestion de Catégories</h2>
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowAddCategory(true)}
+                  className="w-full bg-gradient-to-r from-purple-500 to-[#E0B0FF] text-white py-4 rounded-2xl font-bold text-lg shadow-lg flex items-center justify-center gap-2"
+                >
+                  <Plus size={24} />
+                  Ajouter Catégorie
+                </motion.button>
               </motion.div>
-              <h2 className="text-2xl font-black text-purple-900">Gestion de Catégories</h2>
+
+              {/* Add Product Card */}
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="bg-white rounded-3xl p-8 shadow-xl border-2 border-[#E0B0FF]/20"
+              >
+                <div className="flex items-center gap-3 mb-6">
+                  <motion.div
+                    animate={{ scale: [1, 1.1, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="bg-gradient-to-br from-[#E0B0FF]/10 to-purple-100 p-3 rounded-2xl"
+                  >
+                    <Package className="text-[#E0B0FF]" size={24} />
+                  </motion.div>
+                  <h2 className="text-2xl font-black text-purple-900">Ajouter Produit</h2>
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowAddProduct(true)}
+                  className="w-full bg-gradient-to-r from-[#E0B0FF] to-purple-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg flex items-center justify-center gap-2"
+                >
+                  <Plus size={24} />
+                  Nouveau Produit
+                </motion.button>
+              </motion.div>
             </div>
 
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setShowAddCategory(true)}
-              className="w-full bg-gradient-to-r from-purple-500 to-[#E0B0FF] text-white py-4 rounded-2xl font-bold text-lg shadow-lg flex items-center justify-center gap-2"
+            {/* Recent Orders Table */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-8 bg-white rounded-3xl p-8 shadow-xl border-2 border-[#E0B0FF]/20"
             >
-              <Plus size={24} />
-              Ajouter Catégorie
-            </motion.button>
-          </motion.div>
-
-          {/* Add Product Card */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="bg-white rounded-3xl p-8 shadow-xl border-2 border-[#E0B0FF]/20"
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <motion.div
-                animate={{ scale: [1, 1.1, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="bg-gradient-to-br from-[#E0B0FF]/10 to-purple-100 p-3 rounded-2xl"
-              >
-                <Package className="text-[#E0B0FF]" size={24} />
-              </motion.div>
-              <h2 className="text-2xl font-black text-purple-900">Ajouter Produit</h2>
-            </div>
-
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setShowAddProduct(true)}
-              className="w-full bg-gradient-to-r from-[#E0B0FF] to-purple-500 text-white py-4 rounded-2xl font-bold text-lg shadow-lg flex items-center justify-center gap-2"
+              <h2 className="text-2xl font-black text-purple-900 mb-6 flex items-center gap-3">
+                <ShoppingCart className="text-[#E0B0FF]" /> آخر الطلبيات
+              </h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-right">
+                  <thead>
+                    <tr className="border-b border-pink-50">
+                      <th className="pb-4 font-bold text-gray-500">العميل</th>
+                      <th className="pb-4 font-bold text-gray-500">التاريخ</th>
+                      <th className="pb-4 font-bold text-gray-500">الإجمالي</th>
+                      <th className="pb-4 font-bold text-gray-500">الحالة</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-pink-50">
+                    {orders.length > 0 ? orders.slice().reverse().map((order) => (
+                      <tr key={order.id}>
+                        <td className="py-4">
+                          <div className="font-bold text-purple-900">{order.customer}</div>
+                          <div className="text-xs text-gray-400">{order.phone}</div>
+                        </td>
+                        <td className="py-4 text-gray-600 text-sm">
+                          {new Date(order.date).toLocaleDateString('ar-DZ')}
+                        </td>
+                        <td className="py-4 font-black text-[#E0B0FF]">{order.total} DA</td>
+                        <td className="py-4">
+                          <span className="bg-green-100 text-green-600 px-3 py-1 rounded-full text-xs font-bold">
+                            مؤكد
+                          </span>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={4} className="py-8 text-center text-gray-400 font-medium">
+                          لا توجد طلبيات بعد
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </motion.div>
+          </>
+        ) : (
+          <div className="space-y-8">
+            {/* Categories Management */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-3xl p-8 shadow-xl border-2 border-[#E0B0FF]/20"
             >
-              <Plus size={24} />
-              Nouveau Produit
-            </motion.button>
-          </motion.div>
-        </div>
+              <h2 className="text-2xl font-black text-purple-900 mb-6 flex items-center gap-3">
+                <Tag className="text-[#E0B0FF]" /> التحكم في الفئات
+              </h2>
+              <div className="grid gap-4">
+                {categories.map((cat) => (
+                  <div key={cat.id} className="flex items-center justify-between p-4 bg-[#E0B0FF]/5 rounded-2xl border border-[#E0B0FF]/10">
+                    <div>
+                      <span className="font-bold text-purple-900">{cat.name}</span>
+                      <span className="text-xs text-gray-400 mr-2">({cat.slug})</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <motion.button 
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => startEditCategory(cat)}
+                        className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg"
+                      >
+                        <Edit size={18} />
+                      </motion.button>
+                      <motion.button 
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => deleteCategory(cat.id)}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                      >
+                        <Trash2 size={18} />
+                      </motion.button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Products Management */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white rounded-3xl p-8 shadow-xl border-2 border-[#E0B0FF]/20"
+            >
+              <h2 className="text-2xl font-black text-purple-900 mb-6 flex items-center gap-3">
+                <Package className="text-[#E0B0FF]" /> التحكم في المنتجات
+              </h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-right">
+                  <thead>
+                    <tr className="border-b border-pink-50">
+                      <th className="pb-4 font-bold text-gray-500">المنتج</th>
+                      <th className="pb-4 font-bold text-gray-500">الفئة</th>
+                      <th className="pb-4 font-bold text-gray-500">السعر</th>
+                      <th className="pb-4 font-bold text-gray-500">الإجراءات</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-pink-50">
+                    {products.map((prod) => (
+                      <tr key={prod.id} className="group">
+                        <td className="py-4 font-bold text-purple-900">{prod.name}</td>
+                        <td className="py-4 text-gray-600">
+                          {categories.find(c => c.id === Number(prod.category_id))?.name || "بدون فئة"}
+                        </td>
+                        <td className="py-4 font-black text-[#E0B0FF]">{prod.price} DA</td>
+                        <td className="py-4">
+                          <div className="flex gap-2">
+                            <motion.button 
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => startEditProduct(prod)}
+                              className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg"
+                            >
+                              <Edit size={18} />
+                            </motion.button>
+                            <motion.button 
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => deleteProduct(prod.id)}
+                              className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                            >
+                              <Trash2 size={18} />
+                            </motion.button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
       </div>
 
       {/* Modal: Add Category */}
@@ -252,11 +529,11 @@ export default function Dashboard() {
               className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl"
             >
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-black text-purple-900">Nouvelle Catégorie</h3>
+                <h3 className="text-2xl font-black text-purple-900">{editingCategory ? "تعديل فئة" : "Nouvelle Catégorie"}</h3>
                 <motion.button
                   whileHover={{ scale: 1.1, rotate: 90 }}
                   whileTap={{ scale: 0.9 }}
-                  onClick={() => setShowAddCategory(false)}
+                  onClick={() => { setShowAddCategory(false); setEditingCategory(null); }}
                   className="p-2 hover:bg-pink-50 rounded-xl transition-colors"
                 >
                   <X size={24} className="text-gray-600" />
@@ -266,8 +543,8 @@ export default function Dashboard() {
               <input
                 type="text"
                 placeholder="Nom de la catégorie"
-                value={categoryName}
-                onChange={(e) => setCategoryName(e.target.value)}
+                value={categoryData.name}
+                onChange={(e) => setCategoryData({ ...categoryData, name: e.target.value })}
                 className="w-full bg-gradient-to-r from-[#E0B0FF]/10 to-purple-50 border-2 border-[#E0B0FF]/20 rounded-2xl px-4 py-4 outline-none focus:ring-2 ring-[#E0B0FF]/30 font-medium mb-6"
               />
 
@@ -278,7 +555,7 @@ export default function Dashboard() {
                 className="w-full bg-gradient-to-r from-purple-500 to-[#E0B0FF] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg"
               >
                 <Save size={20} />
-                Enregistrer
+                {editingCategory ? "تحديث الفئة" : "Enregistrer"}
               </motion.button>
             </motion.div>
           </motion.div>
@@ -303,11 +580,11 @@ export default function Dashboard() {
               className="bg-white rounded-3xl p-8 max-w-2xl w-full shadow-2xl my-8"
             >
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-black text-purple-900">Ajouter Produit</h3>
+                <h3 className="text-2xl font-black text-purple-900">{editingProduct ? "تعديل منتج" : "Ajouter Produit"}</h3>
                 <motion.button
                   whileHover={{ scale: 1.1, rotate: 90 }}
                   whileTap={{ scale: 0.9 }}
-                  onClick={() => setShowAddProduct(false)}
+                  onClick={() => { setShowAddProduct(false); setEditingProduct(null); }}
                   className="p-2 hover:bg-pink-50 rounded-xl transition-colors"
                 >
                   <X size={24} className="text-gray-600" />
@@ -338,17 +615,53 @@ export default function Dashboard() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-bold text-purple-900 mb-2">Catégorie</label>
+                  <label className="block text-sm font-bold text-purple-900 mb-2">الفئة (المجموعة)</label>
                   <select
-                    value={productData.category}
-                    onChange={(e) => setProductData({ ...productData, category: e.target.value })}
+                    value={productData.category_id}
+                    onChange={(e) => setProductData({ ...productData, category_id: e.target.value })}
                     className="w-full bg-gradient-to-r from-[#E0B0FF]/10 to-purple-50 border-2 border-[#E0B0FF]/20 rounded-2xl px-4 py-3 outline-none focus:ring-2 ring-[#E0B0FF]/30 font-medium"
                   >
                     <option value="none">Sélectionner...</option>
-                    <option value="robes">Robes</option>
-                    <option value="chemisiers">Chemisiers</option>
-                    <option value="accessoires">Accessoires</option>
+                    {categories.map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
                   </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-purple-900 mb-2">الألوان (فواصل بينها)</label>
+                    <input
+                      type="text"
+                      placeholder="Red, Blue, Green"
+                      value={productData.colors}
+                      onChange={(e) => setProductData({ ...productData, colors: e.target.value })}
+                      className="w-full bg-gradient-to-r from-[#E0B0FF]/10 to-purple-50 border-2 border-[#E0B0FF]/20 rounded-2xl px-4 py-3 outline-none focus:ring-2 ring-[#E0B0FF]/30 font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-purple-900 mb-2">الكمية في المخزن</label>
+                    <input
+                      type="number"
+                      placeholder="10"
+                      value={productData.stock}
+                      onChange={(e) => setProductData({ ...productData, stock: e.target.value })}
+                      className="w-full bg-gradient-to-r from-[#E0B0FF]/10 to-purple-50 border-2 border-[#E0B0FF]/20 rounded-2xl px-4 py-3 outline-none focus:ring-2 ring-[#E0B0FF]/30 font-medium"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 bg-pink-50/50 p-4 rounded-2xl">
+                  <input
+                    type="checkbox"
+                    id="track_stock"
+                    checked={productData.track_stock}
+                    onChange={(e) => setProductData({ ...productData, track_stock: e.target.checked })}
+                    className="w-5 h-5 rounded border-[#E0B0FF] text-[#E0B0FF] focus:ring-[#E0B0FF]"
+                  />
+                  <label htmlFor="track_stock" className="text-sm font-bold text-purple-900 cursor-pointer">
+                    تتبع المخزون (ينقص عند البيع)
+                  </label>
                 </div>
 
                 <div>
@@ -398,7 +711,7 @@ export default function Dashboard() {
                   className="w-full bg-gradient-to-r from-[#E0B0FF] via-purple-500 to-[#E0B0FF] text-white py-4 rounded-2xl font-bold text-lg flex items-center justify-center gap-2 shadow-xl mt-6"
                 >
                   <Save size={22} />
-                  Publier le Produit
+                  {editingProduct ? "تحديث المنتج" : "Publier le Produit"}
                 </motion.button>
               </div>
             </motion.div>

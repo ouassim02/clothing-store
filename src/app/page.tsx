@@ -153,15 +153,23 @@ export default function StoreFront() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showCheckout, setShowCheckout] = useState(false);
-  const [customerInfo, setCustomerInfo] = useState({ name: "", phone: "", city: "الجزائر العاصمة" });
+  const [customerInfo, setCustomerInfo] = useState({ name: "", phone: "", city: "الجزائر العاصمة", commune: "" });
 
   const myWhatsApp = "213563413607";
-  const deliveryFees: any = { "ادرار": 400,
-  "الشلف": 600,
-  "الاغواط": 600,
-  "عنابة": 700,
-  "أخرى": 800,
-   };
+  const deliveryFees: any = {
+    "أدرار": 800, "الشلف": 600, "الأغواط": 600, "أم البواقي": 600, "باتنة": 600,
+    "بجاية": 600, "بسكرة": 600, "بشار": 800, "البليدة": 400, "البويرة": 500,
+    "تمنراست": 1000, "تبسة": 600, "تلمسان": 600, "تيارت": 600, "تيزي وزو": 500,
+    "الجزائر العاصمة": 400, "الجلفة": 600, "جيجل": 600, "سطيف": 500, "سعيدة": 600,
+    "سكيكدة": 600, "سيدي بلعباس": 600, "عنابة": 600, "قالمة": 600, "قسنطينة": 500,
+    "المدية": 500, "مستغانم": 600, "المسيلة": 600, "معسكر": 600, "ورقلة": 800,
+    "وهران": 500, "البيض": 800, "إليزي": 1200, "برج بوعريريج": 500, "الطارف": 600,
+    "تندوف": 1200, "تيسمسيلت": 600, "الوادي": 800, "خنشلة": 600, "سوق أهراس": 600,
+    "تيبازة": 500, "ميلة": 600, "عين الدفلى": 500, "النعامة": 800, "عين تموشنت": 600,
+    "غرداية": 800, "غليزان": 600, "تيميمون": 1000, "برج باجي مختار": 1200, "أولاد جلال": 800,
+    "بني عباس": 1000, "إن صالح": 1200, "إن قزام": 1200, "تقرت": 800, "جانت": 1200,
+    "المغير": 800, "المنيعة": 1000
+  };
 
   // بيانات وهمية للعرض
   const demoProducts = [
@@ -560,19 +568,40 @@ export default function StoreFront() {
                 type="tel" 
                 onChange={e => setCustomerInfo({...customerInfo, phone: e.target.value})} 
               />
-              <select 
-                className="w-full bg-gradient-to-r from-[#E0B0FF]/10 to-purple-50 border-2 border-[#E0B0FF]/20 p-4 rounded-3xl mb-8 text-right outline-none focus:ring-2 ring-[#E0B0FF]/30 font-medium" 
-                onChange={e => setCustomerInfo({...customerInfo, city: e.target.value})}
-              >
-                {Object.keys(deliveryFees).map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <input 
+                  className="w-full bg-gradient-to-r from-[#E0B0FF]/10 to-purple-50 border-2 border-[#E0B0FF]/20 p-4 rounded-3xl text-right outline-none focus:ring-2 ring-[#E0B0FF]/30 font-medium" 
+                  placeholder="البلدية" 
+                  onChange={e => setCustomerInfo({...customerInfo, commune: e.target.value})} 
+                />
+                <select 
+                  className="w-full bg-gradient-to-r from-[#E0B0FF]/10 to-purple-50 border-2 border-[#E0B0FF]/20 p-4 rounded-3xl text-right outline-none focus:ring-2 ring-[#E0B0FF]/30 font-medium" 
+                  onChange={e => setCustomerInfo({...customerInfo, city: e.target.value})}
+                  value={customerInfo.city}
+                >
+                  {Object.keys(deliveryFees).map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
               
               <motion.button 
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => {
                   const list = cart.map(i => `• ${i.name} [${i.size}]`).join("%0A");
-                  window.open(`https://wa.me/${myWhatsApp}?text=طلب جديد من بوتيك أمينة:%0A------------------%0A${list}%0A------------------%0Aالإجمالي: ${totalPrice} DA%0Aالاسم: ${customerInfo.name}%0Aالهاتف: ${customerInfo.phone}%0Aالمدينة: ${customerInfo.city}`);
+                  
+                  // تسجيل الطلبية محلياً للعرض في لوحة التحكم
+                  const newOrder = {
+                    id: Date.now(),
+                    customer: customerInfo.name,
+                    phone: customerInfo.phone,
+                    total: totalPrice,
+                    date: new Date().toISOString(),
+                    items: cart.length
+                  };
+                  const existingOrders = JSON.parse(localStorage.getItem("orders") || "[]");
+                  localStorage.setItem("orders", JSON.stringify([...existingOrders, newOrder]));
+
+                  window.open(`https://wa.me/${myWhatsApp}?text=طلب جديد من بوتيك أمينة:%0A------------------%0A${list}%0A------------------%0Aالإجمالي: ${totalPrice} DA%0Aالاسم: ${customerInfo.name}%0Aالهاتف: ${customerInfo.phone}%0Aالولاية: ${customerInfo.city}%0Aالبلدية: ${customerInfo.commune}`);
                 }} 
                 className="w-full bg-[#25D366] hover:bg-[#20BD5A] text-white py-5 rounded-3xl font-black text-lg shadow-2xl shadow-green-200"
               >

@@ -10,12 +10,17 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [mounted, setMounted] = useState(false);
 
-  useState(() => {
+  useEffect(() => {
     setMounted(true);
-  });
+  }, []);
 
-  const handleSubmit = () => {
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     console.log("Login:", { email, password });
+    // توجيه بسيط للوحة التحكم بعد تسجيل الدخول
+    if (email && password) {
+      window.location.href = "/admin";
+    }
   };
 
   // تحديد مواضع ثابتة للقلوب بدلاً من Math.random
@@ -120,7 +125,7 @@ export default function Login() {
         </motion.div>
 
         {/* Form */}
-        <div className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Email Input */}
           <motion.div
             initial={{ x: -20, opacity: 0 }}
@@ -205,6 +210,7 @@ export default function Login() {
 
           {/* Submit Button */}
           <motion.button
+            type="submit"
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.6 }}
@@ -221,7 +227,7 @@ export default function Login() {
               Se connecter
             </span>
           </motion.button>
-        </div>
+        </form>
 
         {/* Decorative Elements */}
         <motion.div
